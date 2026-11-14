@@ -171,6 +171,16 @@ Very similar to WSJT-X — shares the same audio/rig framework.
 - Primary frequency: 14.078 MHz (HF day), 7.078 MHz (NVIS/night)
 - JS8Call is a keyboard QSO mode — type CQ or replies in the message box
 - Can be used offline as a messaging system — messages stored for later retrieval
+- **Config lives in `~/.config/JS8Call.ini`** — one section per profile under
+  `[MultiSettings]`, active profile is `CurrentName`. Audio keys `SoundInId` /
+  `SoundInName` are in `[Configuration]`. Delete stale profiles (e.g. `Default - Copy`)
+  so you can't accidentally load one with wrong device/CAT settings.
+- **If JS8Call decodes nothing and seems to use the wrong microphone:** it fell back to
+  the system default input because the radio's USB audio device wasn't present when
+  JS8Call started (radio powered on after JS8Call, or launched too early). The audio
+  dropdown still shows the right device — but check with
+  `pactl list source-outputs | grep -E 'application.name|Source:'`. See
+  `/elmer-audio` → Section E, "records from the built-in mic instead of the radio".
 
 ---
 

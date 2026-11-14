@@ -21,7 +21,7 @@ If the user describes a task, route directly without showing the full menu:
 | FT8, FT4, digital modes, fldigi, WSJT-X, JS8Call, JS8 Spotter | `/elmer-digital` |
 | rig not detected, CAT, flrig, Hamlib, serial port, USB | `/elmer-rig` |
 | audio, sound card, no audio, levels, mic, PTT | `/elmer-audio` |
-| Winlink, Pat, ARDOP, Vara | `/elmer-winlink` |
+| Winlink, Pat, ARDOP, Vara, Mercury | `/elmer-winlink` |
 | packet, Direwolf, AX.25, kissattach, APRS packet | `/elmer-packet` |
 | APRS, igate, Xastir, beacon | `/elmer-aprs` |
 | SDR, GQRX, SDR++, dongle, RTL | `/elmer-sdr` |
@@ -40,7 +40,7 @@ Only show the full menu when the user asks "what can you do" or similar.
 
 **HF Digital** (shown if `rigs.hf.enabled` is true):
 - HF Digital Modes (fldigi, WSJT-X, JS8Call) → `/elmer-digital`
-- Winlink (Pat, ARDOP, Vara HF) → `/elmer-winlink`
+- Winlink (Pat, ARDOP, Vara HF, Mercury) → `/elmer-winlink`
 
 **VHF/UHF** (shown if `rigs.vhf_uhf.enabled` is true):
 - Packet Radio (Direwolf, AX.25) → `/elmer-packet`

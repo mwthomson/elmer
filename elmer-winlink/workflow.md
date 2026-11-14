@@ -12,8 +12,9 @@ Ask what they want to work on:
 1. Install and configure Pat
 2. Set up ARDOP
 3. Set up Vara HF (via Bottles)
-4. Make my first Winlink connection
-5. Troubleshoot a connection problem
+4. Set up Mercury (open-source OFDM modem)
+5. Make my first Winlink connection
+6. Troubleshoot a connection problem
 
 ---
 
@@ -237,12 +238,70 @@ Create a launch script and add to config.
 
 ---
 
+## SECTION C2 — MERCURY
+
+Mercury (github.com/Rhizomatica/mercury) is an open-source HF OFDM modem (FreeDV-based). It's native on Linux, so no Bottles or Wine. It exposes a **VARA-compatible TNC**: control port 8300, data port 8301 (plus broadcast on 8100). See `docs/TNC.md` in the Mercury repo.
+
+### How Pat talks to it
+
+Stock Pat has no `mercury` transport. Use Pat's **VARA HF transport** pointed at Mercury's port:
+```json
+"varahf": { "addr": "localhost:8300", "rig": "...", "ptt_ctrl": true }
+```
+```bash
+pat connect varahf:///[GATEWAY-CALL]   # the gateway must also run Mercury
+```
+Mercury and VARA HF both default to 8300, so **run only one at a time**. Pat's `varahf` entry talks to whichever one is listening. To run both, move Mercury with `arq_tcp_base_port` (or `-p`) and give Pat a second address.
+
+### Config file: location matters
+
+Mercury searches, in order:
+1. `./mercury.ini` (current directory)
+2. `$XDG_CONFIG_HOME/mercury/mercury.ini` → `~/.config/mercury/mercury.ini` (**lowercase** `mercury`)
+3. `/etc/mercury/mercury.ini`
+
+Or force one with `-C <file>`. **If none is found it silently runs on built-in defaults**, which means ALSA's default device, i.e. the laptop speakers. Always check the first line of output:
+```bash
+mercury -h 2>&1 | head -1
+# Good: "Loaded configuration from /home/.../.config/mercury/mercury.ini"
+# Bad:  "No configuration file found ... running on built-in defaults"
+```
+Linux paths are case-sensitive: `~/.config/Mercury/` is NOT found. Symptom: TX audio comes out of the computer speakers instead of the rig.
+
+### Key mercury.ini settings
+
+```ini
+[main]
+sound_system   = pulse                            ; works on PipeWire via pipewire-pulse
+input_device   = [radio source name]   ; from: pactl list short sources
+output_device  = [radio sink name]     ; from: pactl list short sinks
+capture_channel = left
+radio_model    = 2                ; Hamlib NET rigctl → talk to rigctld
+radio_device   = 127.0.0.1:4532   ; rigctld default port (rigctld may run the rig directly or proxy flrig with -m 4)
+arq_tcp_base_port = 8300
+
+[audio]
+tx_gain_db = 0.0   ; Mercury-only TX drive, so you don't touch the shared mixer
+```
+- `mercury -z` lists sound devices and `mercury -K` lists Hamlib models.
+- Use the stable WirePlumber names (see `/elmer-audio`, "Persistent, human-readable device names"), not card numbers.
+- PTT: `mercury -Q` keys the configured PTT for 1 second and exits. **This transmits.** Confirm the rig is on a dummy load or a clear frequency first.
+- If both Mercury (`radio_model`) and Pat (`ptt_ctrl: true`) are set up to key PTT, pick one owner if you see double-keying or PTT errors.
+
+### Troubleshooting Mercury
+
+- **Audio out the laptop speakers:** the config wasn't loaded. Check the first output line and the folder case.
+- **Pat "connection refused" on 8300:** Mercury isn't running, or VARA HF grabbed the port first.
+- **No decodes:** check `capture_channel` (most rig USB codecs put RX audio on left/mono) and RX levels (`/elmer-audio`).
+
+---
+
 ## SECTION D — MAKING A WINLINK CONNECTION
 
 ### Pre-flight checklist
 
 - [ ] rigctld running (or flrig): rig is responding to CAT
-- [ ] ARDOP or VARA HF running and showing "Listening"
+- [ ] ARDOP, VARA HF, or Mercury running (Mercury: first line says "Loaded configuration from ...")
 - [ ] Pat configured with callsign and transport
 - [ ] Rig set to correct Winlink frequency (check winlink.org/frequencies)
 - [ ] Rig in USB mode (not LSB)

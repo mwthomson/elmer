@@ -108,6 +108,53 @@ pactl list sinks short
 pactl set-default-sink [system-audio-sink-name]
 ```
 
+### Persistent, human-readable device names
+
+USB sound codecs enumerate in unpredictable order — two identical "USB Audio Device"
+entries that swap card number on reboot or replug, and PipeWire node names that carry a
+USB-path suffix (`...-00.2...`) which changes with the port. Pin them by USB **product
+ID** (`lsusb` → `idVendor:idProduct`) so the name is stable and says which rig it is.
+
+Placeholders below: `[VID]`/`[PID]` come from `lsusb` for each audio device.
+`[NAME]` is a short id with no spaces, taken from the config's `rigs.*.audio_device`
+(e.g. `MyRig`). `[name]` is the same id in lowercase, and `[Label]` is a friendly
+display name. Write one rule/match per device.
+
+**ALSA card id** — `/etc/udev/rules.d/85-ham-audio-names.rules`:
+```
+ACTION=="add|change", SUBSYSTEM=="sound", KERNEL=="card*", ATTRS{idVendor}=="[VID]", ATTRS{idProduct}=="[PID]", ATTR{id}="[NAME]"
+```
+Reload: `sudo udevadm control --reload && sudo udevadm trigger`. Now `hw:[NAME],0`
+is stable regardless of card number.
+Note: two devices that share a VID:PID (common with C-Media codecs) also need
+`ATTRS{serial}` or a USB path to tell them apart.
+
+**PipeWire node name + friendly label** — `~/.config/wireplumber/wireplumber.conf.d/51-ham-radio-names.conf`:
+```
+monitor.alsa.rules = [
+  {
+    matches = [ { device.product.id = "0x[PID]" } ]
+    actions = { update-props = {
+      device.name        = "alsa_card.[name]"
+      device.description = "[Label]"
+    } }
+  }
+]
+```
+Pinning `device.name` drops the USB-path suffix, so the source becomes
+`alsa_input.[name].<profile>` (e.g. `.mono-fallback`; port-independent) and the app
+dropdown shows "[Label]".
+Restart: `systemctl --user restart wireplumber`, or log out/in on sessions without
+`systemd --user`.
+
+After renaming, **re-select the device once in each app** — its saved config still
+points at the old node name.
+
+Handy: a small script that prints which node is which rig (map by USB PID):
+```bash
+pactl list short sources | grep -E '[name1]|[name2]'
+```
+
 ### Verify audio path end-to-end
 
 Test receive audio (radio → computer):
@@ -170,6 +217,48 @@ dmesg | tail -20  # Any USB errors?
 # Check what sample rates the device supports
 cat /proc/asound/card[N]/stream0 2>/dev/null
 ```
+
+**Digital-mode app records from the built-in mic instead of the radio:**
+
+Qt apps (WSJT-X, JS8Call, JTDX) save the input by device *name*. If that device is not
+present the instant the app starts, Qt silently falls back to the **system default
+source** — usually the laptop mic — and stays there for the whole session, even after the
+radio's device appears. The app's audio dropdown still shows the correct device selected;
+it just isn't the one being used.
+
+Why the device is missing at launch:
+- A rig's built-in USB codec only enumerates while the rig is **powered on**. Starting
+  the app before the radio is up = fallback.
+- The app started (autostart, or resume from suspend) before WirePlumber finished
+  renaming the card.
+
+Confirm what it's *actually* using — don't trust the dropdown:
+```bash
+pactl list source-outputs | grep -E 'application.name|Source:'   # which source the app opened
+pw-link -l | grep -i js8call                                     # what it's linked to
+cat ~/.local/state/wireplumber/default-nodes                     # the configured default source
+```
+
+Fixes, simplest first:
+1. Power the radio on, confirm the node exists (`wpctl status` shows it under Sources),
+   *then* launch the app. If already stuck, re-pick the input in the app's audio
+   settings — no restart needed.
+2. Launch the app from a wrapper that waits for the radio:
+   ```bash
+   until pactl list short sources | grep -q 'alsa_input.[name]'; do sleep 1; done
+   exec /path/to/js8call.appimage "$@"
+   ```
+3. Pin the app's capture stream to the radio node so launch order stops mattering —
+   `~/.config/wireplumber/wireplumber.conf.d/50-js8call-capture.conf`:
+   ```
+   node.rules = [
+     {
+       matches = [ { application.name = "JS8Call", media.class = "Stream/Input/Audio" } ]
+       actions = { update-props = { target.object = "[radio source name from pactl]" } }
+     }
+   ]
+   ```
+   Restart wireplumber and the app. Verify with the `pw-link` check above before trusting it.
 
 **Audio works but PTT doesn't:**
 → Go to `/elmer-rig` for PTT configuration

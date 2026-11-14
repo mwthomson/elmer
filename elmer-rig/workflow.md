@@ -84,13 +84,13 @@ rigctl -l 2>/dev/null | grep -i "[rig name from config]"
 echo "Install hamlib first with: sudo apt install libhamlib-utils  (or equivalent for their distro)"
 ```
 
-Show results and help them identify the correct entry. Common rigs for reference:
-- Yaesu FT-710: 1060
+Show results and help them identify the correct entry. Common rigs for reference (Hamlib 4.6; IDs can change between releases, so always confirm with `rigctl -l`):
+- Yaesu FT-710: 1049
 - Yaesu FT-991A: 1035
-- Yaesu FT-857D: 1012
+- Yaesu FT-857D: 1022
 - Icom IC-7300: 3073
 - Icom IC-705: 3085
-- Kenwood TS-590SG: 2028
+- Kenwood TS-590SG: 2037
 
 Update config with confirmed Hamlib ID.
 
